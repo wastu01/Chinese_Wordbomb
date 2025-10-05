@@ -12,6 +12,12 @@
 
 - `dict_moedict_clean_s.json` simplified chinese version.
 
+to-do : 
+
+recording the last score on cache.
+
+add multiplayer mode.
+
 ## Data Source and License
 
 Vocabulary data originates from the [g0v moedict-webkit project](https://github.com/g0v/moedict-webkit), which is released under the **CC0 1.0 公眾領域貢獻宣告**. As required, please review:
