@@ -1,0 +1,17 @@
+{
+  "name": "chinese_wordbomb",
+  "version": "1.0.0",
+  "description": "",
+  "main": "filter.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "convert": "node scripts/convert_to_simplified.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "opencc-js": "^1.0.5"
+  }
+}
