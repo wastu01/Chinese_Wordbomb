@@ -2,6 +2,8 @@
 
 中文詞語接龍遊戲
 
+[https://wastu01.github.io/Chinese_Wordbomb/](https://wastu01.github.io/Chinese_Wordbomb/)
+
 ## Project Layout
 
 - `dict_moedict_clean.json` — Reference dictionaries derived from the [萌典](https://github.com/g0v/moedict-webkit) open data dump.
