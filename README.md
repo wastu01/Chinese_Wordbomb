@@ -2,6 +2,8 @@
 
 中文詞語接龍遊戲
 
+![預覽圖](index.png)
+
 [https://wastu01.github.io/Chinese_Wordbomb/](https://wastu01.github.io/Chinese_Wordbomb/)
 
 ## Project Layout
