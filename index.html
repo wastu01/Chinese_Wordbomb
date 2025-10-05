@@ -88,6 +88,9 @@
 
         let resultClearTimerId = null;
 
+        const correctSound = new Audio('correct.mp3');
+        correctSound.preload = 'auto';
+
         const dictionaryState = {
             allWords: [],
             wordSet: new Set(),
@@ -210,6 +213,7 @@
             const nextWord = takeNextFromPool(nextChar, gameState.usedWords) || takeNextFallback(gameState.usedWords);
 
             showResult('答對了！', 'success', { autoClear: true, clearDelay: 1300 });
+            playCorrectSound();
             answerInputEl.value = '';
 
             if (!nextWord) {
@@ -338,6 +342,16 @@
                 timerProgressEl.classList.toggle('bg-danger', ratio <= 0.25);
                 timerProgressEl.classList.toggle('bg-warning', ratio > 0.25 && ratio <= 0.5);
                 timerProgressEl.classList.toggle('bg-success', ratio > 0.5);
+            }
+        }
+
+        function playCorrectSound() {
+            if (correctSound.readyState >= 2) {
+                correctSound.currentTime = 0;
+            }
+            const playPromise = correctSound.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => {});
             }
         }
 
