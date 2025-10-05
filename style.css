@@ -1,0 +1,110 @@
+        .feedback-success {
+            color: #198754;
+            border-left: 0.35rem solid #198754;
+            background-color: rgba(25, 135, 84, 0.12);
+            padding: 0.6rem 0.75rem;
+            border-radius: 0.5rem;
+            animation: feedbackFadeOut 1.3s ease-out forwards;
+        }
+
+        .feedback-error {
+            color: #dc3545;
+        }
+
+        .feedback-warning {
+            color: #fd7e14;
+        }
+
+        @keyframes feedbackFadeOut {
+            0% {
+                opacity: 1;
+            }
+            75% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .language-switch {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.95rem;
+            user-select: none;
+        }
+
+        .language-switch .check-toggle {
+            display: none;
+        }
+
+        .language-switch label {
+            position: relative;
+            display: inline-block;
+            width: 54px;
+            height: 28px;
+            background: #ced4da;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background-color 0.25s ease;
+            order: 2;
+        }
+
+        .language-switch label::after {
+            content: "";
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: transform 0.25s ease;
+        }
+
+        .language-switch .switch-label {
+            font-weight: 600;
+            color: #6c757d;
+            transition: color 0.25s ease;
+        }
+
+        .language-switch .on {
+            order: 1;
+            margin-right: 0.2rem;
+        }
+
+        .language-switch .off {
+            order: 3;
+            margin-left: 0.2rem;
+        }
+
+        .language-switch .check-toggle:checked + label {
+            background: #0d6efd;
+        }
+
+        .language-switch .check-toggle:checked + label::after {
+            transform: translateX(26px);
+        }
+
+        .language-switch .check-toggle:checked ~ .on {
+            color: #0d6efd;
+        }
+
+        .language-switch .check-toggle:checked ~ .off {
+            color: #6c757d;
+        }
+
+        .language-switch .check-toggle:not(:checked) ~ .on {
+            color: #6c757d;
+        }
+
+        .language-switch .check-toggle:not(:checked) ~ .off {
+            color: #0d6efd;
+        }
+
+        .language-switch:focus-within label {
+            outline: 2px solid rgba(13, 110, 253, 0.35);
+            outline-offset: 2px;
+        }

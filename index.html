@@ -5,85 +5,153 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Word Bomb 中文文字遊戲</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .feedback-success {
-            color: #198754;
-            border-left: 0.35rem solid #198754;
-            background-color: rgba(25, 135, 84, 0.12);
-            padding: 0.6rem 0.75rem;
-            border-radius: 0.5rem;
-            animation: feedbackFadeOut 1.3s ease-out forwards;
-        }
-
-        .feedback-error {
-            color: #dc3545;
-        }
-
-        .feedback-warning {
-            color: #fd7e14;
-        }
-
-        @keyframes feedbackFadeOut {
-            0% {
-                opacity: 1;
-            }
-            75% {
-                opacity: 1;
-            }
-            100% {
-                opacity: 0;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-light">
     <div class="container py-5">
-        <h1 class="mb-4 text-center">中文詞語接龍遊戲</h1>
+        <h1 id="app-title" class="mb-4 text-center">中文詞語接龍遊戲</h1>
         <div id="game-area" class="card p-4 shadow-sm">
             <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
                 <div id="score-display" class="fs-3 fw-bold text-primary">分數：0</div>
-                <button id="start-btn" class="btn btn-success">開始遊戲</button>
+                <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
+                    <button id="start-btn" class="btn btn-success">開始遊戲</button>
+                    <div id="language-switch" class="switch language-switch">
+                        <input id="language-toggle" class="check-toggle" type="checkbox" aria-label="切換語言">
+                        <label for="language-toggle"></label>
+                        <span id="language-label-on" class="switch-label on">繁體</span>
+                        <span id="language-label-off" class="switch-label off">簡體</span>
+                    </div>
+                </div>
             </div>
             <div class="progress mb-3" style="height: 12px;">
-                <div id="timer-progress" class="progress-bar" role="progressbar" style="width: 100%;"></div>
+                <div id="timer-progress" class="progress-bar bg-success" role="progressbar" style="width: 100%;"></div>
             </div>
-            <div id="question" class="mb-3 fs-5">Type the vocab start with last character with this below:</div>
-            <div id="current-word" class="mb-3 fs-1 text-center text-primary"></div>
+            <div id="question" class="mb-3 fs-5">請輸入以上詞語最後一字開頭的詞語：</div>
+            <div id="current-word" class="mb-3 fs-1 text-center text-primary">載入題目中...</div>
             <div id="timer" class="mb-2">
                 <span class="badge bg-secondary">
-                    倒數：<span id="time-remaining">12</span> 秒
+                    <span id="countdown-label">倒數</span>：<span id="time-remaining">12</span> <span id="seconds-label">秒</span>
                 </span>
             </div>
             <div class="mb-3">
-                <input id="answer-input" type="text" class="form-control form-control-lg" placeholder="輸入詞語後按 Enter">
+                <input id="answer-input" type="text" class="form-control form-control-lg" placeholder="輸入詞語後按 Enter" disabled>
             </div>
-            <div id="choices" class="mb-3">
-
-            </div>
+            <div id="choices" class="mb-3"></div>
             <div id="result" class="mt-3"></div>
             <div id="final-message" class="mt-4 fs-4 text-center"></div>
-            <!-- <button id="next-btn" class="btn btn-primary mt-3 d-none">下一題</button> -->
             <button id="restart-btn" class="btn btn-outline-primary mt-3 d-none">重新開始</button>
         </div>
         <div class="text-center text-muted mt-4 small">
-            source code：<a href="https://github.com/wastu01/Chinese_Wordbomb" class="link-secondary" target="_blank" rel="noopener">GitHub</a> ｜
-            feedback：<a href="https://github.com/wastu01/Chinese_Wordbomb/issues/new" class="link-secondary" target="_blank" rel="noopener">建立 Issue</a>
+            <span id="footer-source-label">source code：</span><a id="footer-source-link" href="https://github.com/wastu01/Chinese_Wordbomb" class="link-secondary" target="_blank" rel="noopener">GitHub</a>
+            <span class="mx-1">｜</span>
+            <span id="footer-feedback-label">feedback：</span><a id="footer-feedback-link" href="https://github.com/wastu01/Chinese_Wordbomb/issues/new" class="link-secondary" target="_blank" rel="noopener">建立 Issue</a>
         </div>
     </div>
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        const LANGUAGE_PACKS = {
+            'zh-Hant': {
+                dictionary: 'dict_moedict_clean.json',
+                strings: {
+                    documentTitle: 'Word Bomb 中文文字遊戲',
+                    appTitle: '中文詞語接龍遊戲',
+                    startButton: '開始遊戲',
+                    restartButton: '重新開始',
+                    scoreLabel: score => `分數：${score}`,
+                    questionIntro: '請輸入以上詞語最後一字開頭的詞語：',
+                    countdownLabel: '倒數',
+                    secondsSuffix: '秒',
+                    loadingMessage: '載入題目中...',
+                    startPrompt: '按「開始遊戲」取得題目',
+                    loadingFailed: '載入題庫失敗，請稍後再試。',
+                    noAvailable: '沒有可用的題目。',
+                    answerEmpty: '答案不可為空白。',
+                    answerWhitespace: '前後空白視為錯誤。',
+                    answerMustStart: char => `答案須以「${char || ''}」開頭。`,
+                    wordNotFound: '題庫中找不到這個詞語。',
+                    wordUsed: '這個詞語已經用過了。',
+                    correct: '答對了！',
+                    victory: char => `沒有以「${char}」開頭的題目，恭喜破關！`,
+                    timeUp: '時間到了，請盡快作答！',
+                    inputPlaceholder: '輸入詞語後按 Enter',
+                    languageLabelTraditional: '繁體',
+                    languageLabelSimplified: '簡體',
+                    languageToggleTitle: '切換繁體、簡體字庫',
+                    footerSourceLabel: 'source code：',
+                    footerSourceText: 'GitHub',
+                    footerFeedbackLabel: 'feedback：',
+                    footerFeedbackText: '建立 Issue'
+                }
+            },
+            'zh-Hans': {
+                dictionary: 'dict_moedict_clean_s.json',
+                strings: {
+                    documentTitle: 'Word Bomb 中文文字游戏',
+                    appTitle: '中文词语接龙游戏',
+                    startButton: '开始游戏',
+                    restartButton: '重新开始',
+                    scoreLabel: score => `分数：${score}`,
+                    questionIntro: '请输入以上词语最后一字开头的词语：',
+                    countdownLabel: '倒计时',
+                    secondsSuffix: '秒',
+                    loadingMessage: '载入题目中...',
+                    startPrompt: '按“开始游戏”取得题目',
+                    loadingFailed: '载入题库失败，请稍后再试。',
+                    noAvailable: '没有可用的题目。',
+                    answerEmpty: '答案不可为空白。',
+                    answerWhitespace: '前后空白视为错误。',
+                    answerMustStart: char => `答案须以“${char || ''}”开头。`,
+                    wordNotFound: '题库中找不到这个词语。',
+                    wordUsed: '这个词语已经用过了。',
+                    correct: '答对了！',
+                    victory: char => `没有以“${char}”开头的题目，恭喜过关！`,
+                    timeUp: '时间到了，请尽快作答！',
+                    inputPlaceholder: '输入词语后按 Enter',
+                    languageLabelTraditional: '繁体',
+                    languageLabelSimplified: '简体',
+                    languageToggleTitle: '切换繁体、简体字库',
+                    footerSourceLabel: 'source code：',
+                    footerSourceText: 'GitHub',
+                    footerFeedbackLabel: 'feedback：',
+                    footerFeedbackText: '提交 Issue'
+                }
+            }
+        };
+
+        const STORAGE_KEY_LANGUAGE = 'wordbomb-language';
+        const DEFAULT_LANGUAGE = 'zh-Hant';
+
+        const appTitleEl = document.getElementById('app-title');
         const scoreDisplayEl = document.getElementById('score-display');
         const startBtn = document.getElementById('start-btn');
         const restartBtn = document.getElementById('restart-btn');
         const currentWordEl = document.getElementById('current-word');
+        const questionEl = document.getElementById('question');
         const answerInputEl = document.getElementById('answer-input');
         const resultEl = document.getElementById('result');
         const finalMessageEl = document.getElementById('final-message');
         const timerProgressEl = document.getElementById('timer-progress');
         const timeRemainingEl = document.getElementById('time-remaining');
+        const countdownLabelEl = document.getElementById('countdown-label');
+        const secondsLabelEl = document.getElementById('seconds-label');
+        const languageToggleEl = document.getElementById('language-toggle');
+        const languageLabelOnEl = document.getElementById('language-label-on');
+        const languageLabelOffEl = document.getElementById('language-label-off');
+        const footerSourceLabelEl = document.getElementById('footer-source-label');
+        const footerSourceLinkEl = document.getElementById('footer-source-link');
+        const footerFeedbackLabelEl = document.getElementById('footer-feedback-label');
+        const footerFeedbackLinkEl = document.getElementById('footer-feedback-link');
 
         const ROUND_TIME_LIMIT = 12;
+
+        const correctSound = new Audio('correct.mp3');
+        correctSound.preload = 'auto';
+
+        const dictionaryCache = new Map();
+        let latestDictionaryRequestId = 0;
+        let suppressToggleEvent = false;
+        let boardStatus = { key: 'loadingMessage', args: [] };
 
         const timerState = {
             remaining: ROUND_TIME_LIMIT,
@@ -91,9 +159,6 @@
         };
 
         let resultClearTimerId = null;
-
-        const correctSound = new Audio('correct.mp3');
-        correctSound.preload = 'auto';
 
         const dictionaryState = {
             allWords: [],
@@ -110,29 +175,14 @@
             active: false,
         };
 
-        currentWordEl.textContent = '載入題目中...';
-        answerInputEl.disabled = true;
-        startBtn.disabled = true;
+        const languageState = {
+            current: null,
+        };
 
-        fetch('dict_moedict_clean.json')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(words => {
-                if (!Array.isArray(words)) {
-                    throw new Error('Unexpected data format from dict_moedict_clean.json');
-                }
-                initializeDictionary(words);
-                currentWordEl.textContent = '按「開始遊戲」取得題目';
-                startBtn.disabled = false;
-            })
-            .catch(error => {
-                console.error('Failed to load vocabulary list:', error);
-                currentWordEl.textContent = '載入題庫失敗，請稍後再試。';
-            });
+        const storedLanguage = localStorage.getItem(STORAGE_KEY_LANGUAGE);
+        const initialLanguage = Object.prototype.hasOwnProperty.call(LANGUAGE_PACKS, storedLanguage)
+            ? storedLanguage
+            : DEFAULT_LANGUAGE;
 
         startBtn.addEventListener('click', startGame);
         restartBtn.addEventListener('click', startGame);
@@ -144,13 +194,187 @@
             }
         });
 
-        function startGame() {
-            if (!dictionaryState.allWords.length) {
+        languageToggleEl.addEventListener('change', () => {
+            if (suppressToggleEvent) {
                 return;
             }
+            const selectedLang = languageToggleEl.checked ? 'zh-Hant' : 'zh-Hans';
+            setLanguage(selectedLang);
+        });
+
+        setLanguage(initialLanguage);
+
+        function getStrings() {
+            const pack = LANGUAGE_PACKS[languageState.current] || LANGUAGE_PACKS[DEFAULT_LANGUAGE];
+            return pack.strings;
+        }
+
+        function translate(key, ...args) {
+            const strings = getStrings();
+            const template = strings[key];
+            if (typeof template === 'function') {
+                return template(...args);
+            }
+            return template ?? '';
+        }
+
+        function setLanguage(lang) {
+            if (!Object.prototype.hasOwnProperty.call(LANGUAGE_PACKS, lang)) {
+                return;
+            }
+            if (languageState.current === lang) {
+                applyLanguageStrings();
+                return;
+            }
+
+            languageState.current = lang;
+            localStorage.setItem(STORAGE_KEY_LANGUAGE, lang);
+            updateLanguageToggle(lang);
+            resetGameForLanguageChange();
+            applyLanguageStrings();
+            loadDictionaryForLanguage(lang);
+        }
+
+        function updateLanguageToggle(lang) {
+            if (!languageToggleEl) {
+                return;
+            }
+            suppressToggleEvent = true;
+            languageToggleEl.checked = lang === 'zh-Hant';
+            languageToggleEl.setAttribute('aria-checked', languageToggleEl.checked ? 'true' : 'false');
+            suppressToggleEvent = false;
+        }
+
+        function applyLanguageStrings() {
+            const strings = getStrings();
+            document.title = strings.documentTitle;
+            if (appTitleEl) {
+                appTitleEl.textContent = strings.appTitle;
+            }
+            if (startBtn) {
+                startBtn.textContent = strings.startButton;
+            }
+            if (restartBtn) {
+                restartBtn.textContent = strings.restartButton;
+            }
+            if (questionEl) {
+                questionEl.textContent = strings.questionIntro;
+            }
+            if (countdownLabelEl) {
+                countdownLabelEl.textContent = strings.countdownLabel;
+            }
+            if (secondsLabelEl) {
+                secondsLabelEl.textContent = strings.secondsSuffix;
+            }
+            if (languageLabelOnEl) {
+                languageLabelOnEl.textContent = strings.languageLabelTraditional;
+            }
+            if (languageLabelOffEl) {
+                languageLabelOffEl.textContent = strings.languageLabelSimplified;
+            }
+            if (languageToggleEl) {
+                languageToggleEl.title = strings.languageToggleTitle;
+                languageToggleEl.setAttribute('aria-label', strings.languageToggleTitle);
+            }
+            if (answerInputEl) {
+                answerInputEl.placeholder = strings.inputPlaceholder;
+            }
+            if (footerSourceLabelEl) {
+                footerSourceLabelEl.textContent = strings.footerSourceLabel;
+            }
+            if (footerSourceLinkEl) {
+                footerSourceLinkEl.textContent = strings.footerSourceText;
+            }
+            if (footerFeedbackLabelEl) {
+                footerFeedbackLabelEl.textContent = strings.footerFeedbackLabel;
+            }
+            if (footerFeedbackLinkEl) {
+                footerFeedbackLinkEl.textContent = strings.footerFeedbackText;
+            }
+            updateScoreDisplay();
+            refreshStatusMessage();
+        }
+
+        function resetGameForLanguageChange() {
+            endGame({ keepStartDisabled: true });
+            gameState.score = 0;
+            gameState.currentWord = '';
+            gameState.usedWords.clear();
+            restartBtn.classList.add('d-none');
+            answerInputEl.value = '';
+            clearResult();
+            finalMessageEl.textContent = '';
+            dictionaryState.allWords = [];
+            dictionaryState.wordSet = new Set();
+            dictionaryState.pools = new Map();
+            dictionaryState.fallback = [];
+            dictionaryState.fallbackCursor = 0;
+            timerState.remaining = ROUND_TIME_LIMIT;
+            updateTimerView();
+            setStatusMessage('loadingMessage');
+            updateScoreDisplay();
+        }
+
+        function loadDictionaryForLanguage(lang) {
+            const pack = LANGUAGE_PACKS[lang];
+            if (!pack) {
+                return;
+            }
+
+            const requestId = ++latestDictionaryRequestId;
+
+            const applyWords = (words, { fromCache = false } = {}) => {
+                if (requestId !== latestDictionaryRequestId) {
+                    return;
+                }
+                initializeDictionary(words);
+                if (!fromCache) {
+                    dictionaryCache.set(lang, dictionaryState.allWords.slice());
+                }
+                setStatusMessage('startPrompt');
+                startBtn.disabled = false;
+                answerInputEl.disabled = true;
+            };
+
+            if (dictionaryCache.has(lang)) {
+                applyWords(dictionaryCache.get(lang), { fromCache: true });
+                return;
+            }
+
+            fetch(pack.dictionary)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(words => {
+                    if (!Array.isArray(words)) {
+                        throw new Error('Unexpected data format');
+                    }
+                    applyWords(words);
+                })
+                .catch(error => {
+                    if (requestId !== latestDictionaryRequestId) {
+                        return;
+                    }
+                    console.error('Failed to load vocabulary list:', error);
+                    setStatusMessage('loadingFailed');
+                    startBtn.disabled = true;
+                    answerInputEl.disabled = true;
+                });
+        }
+
+        function startGame() {
+            if (!dictionaryState.allWords.length) {
+                showResult(translate('loadingMessage'), 'warning');
+                return;
+            }
+
             gameState.score = 0;
             gameState.usedWords.clear();
             gameState.active = true;
+            answerInputEl.value = '';
             clearResult();
             finalMessageEl.textContent = '';
             restartBtn.classList.remove('d-none');
@@ -158,21 +382,22 @@
 
             const initialWord = takeNextFallback(gameState.usedWords);
             if (!initialWord) {
-                currentWordEl.textContent = '沒有可用的題目。';
+                setStatusMessage('noAvailable');
                 endGame();
                 return;
             }
 
-            setCurrentWord(initialWord);
             startBtn.disabled = true;
             answerInputEl.disabled = false;
             answerInputEl.focus();
+            setCurrentWord(initialWord);
         }
 
-        function endGame() {
+        function endGame(options = {}) {
+            const { keepStartDisabled = false } = options;
             gameState.active = false;
             answerInputEl.disabled = true;
-            startBtn.disabled = false;
+            startBtn.disabled = keepStartDisabled;
             stopCountdown();
         }
 
@@ -185,27 +410,27 @@
             const expectedFirstChar = gameState.currentWord.at(-1);
 
             if (!rawAnswer) {
-                showResult('答案不可為空白。', 'error');
+                showResult(translate('answerEmpty'), 'error');
                 return;
             }
 
             if (rawAnswer.trim() !== rawAnswer) {
-                showResult('前後空白視為錯誤。', 'error');
+                showResult(translate('answerWhitespace'), 'error');
                 return;
             }
 
             if (!expectedFirstChar || rawAnswer.at(0) !== expectedFirstChar) {
-                showResult(`答案須以「${expectedFirstChar || ''}」開頭。`, 'error');
+                showResult(translate('answerMustStart', expectedFirstChar || ''), 'error');
                 return;
             }
 
             if (!dictionaryState.wordSet.has(rawAnswer)) {
-                showResult('題庫中找不到這個詞語。', 'error');
+                showResult(translate('wordNotFound'), 'error');
                 return;
             }
 
             if (gameState.usedWords.has(rawAnswer)) {
-                showResult('這個詞語已經用過了。', 'error');
+                showResult(translate('wordUsed'), 'error');
                 return;
             }
 
@@ -216,12 +441,12 @@
             const nextChar = rawAnswer.at(-1);
             const nextWord = takeNextFromPool(nextChar, gameState.usedWords) || takeNextFallback(gameState.usedWords);
 
-            showResult('答對了！', 'success', { autoClear: true, clearDelay: 1300 });
+            showResult(translate('correct'), 'success', { autoClear: true, clearDelay: 1300 });
             playCorrectSound();
             answerInputEl.value = '';
 
             if (!nextWord) {
-                finalMessageEl.textContent = `沒有以「${nextChar}」開頭的題目，恭喜破關！`;
+                finalMessageEl.textContent = translate('victory', nextChar);
                 endGame();
                 return;
             }
@@ -230,14 +455,28 @@
         }
 
         function setCurrentWord(word) {
+            boardStatus = null;
             gameState.currentWord = word;
             gameState.usedWords.add(word);
             currentWordEl.textContent = word;
             resetCountdown();
         }
 
+        function setStatusMessage(key, ...args) {
+            boardStatus = { key, args };
+            currentWordEl.textContent = translate(key, ...args);
+        }
+
+        function refreshStatusMessage() {
+            if (boardStatus) {
+                currentWordEl.textContent = translate(boardStatus.key, ...boardStatus.args);
+            }
+        }
+
         function updateScoreDisplay() {
-            scoreDisplayEl.textContent = `分數：${gameState.score}`;
+            if (scoreDisplayEl) {
+                scoreDisplayEl.textContent = translate('scoreLabel', gameState.score);
+            }
         }
 
         function initializeDictionary(words) {
@@ -266,7 +505,6 @@
         }
 
         function takeNextFromPool(char, usedWords) {
-            // 依據字首輪對應的詞庫，確保同一批詞語會均勻使用並避開已出現過的答案。
             const pool = dictionaryState.pools.get(char);
             if (!pool || !pool.words.length) {
                 return null;
@@ -323,7 +561,7 @@
                 if (timerState.remaining === 0) {
                     stopCountdown();
                     if (gameState.active) {
-                        showResult('時間到了，請盡快作答！', 'warning', { autoClear: true, clearDelay: 1500 });
+                        showResult(translate('timeUp'), 'warning', { autoClear: true, clearDelay: 1500 });
                     }
                 }
             }, 1000);
