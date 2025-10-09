@@ -26,7 +26,10 @@
             <div class="progress mb-3" style="height: 12px;">
                 <div id="timer-progress" class="progress-bar bg-success" role="progressbar" style="width: 100%;"></div>
             </div>
-            <div id="question" class="mb-3 fs-5">請輸入以上詞語最後一字開頭的詞語：</div>
+            <div id="question" class="mb-3 fs-5">
+                <div id="question-text">請輸入一個以題目最後一個字開頭的詞語。</div>
+                <div id="question-text-en" class="text-muted small">Enter a word that starts with the prompt's final character.</div>
+            </div>
             <div id="current-word" class="mb-3 fs-1 text-center text-primary">載入題目中...</div>
             <div id="timer" class="mb-2">
                 <span class="badge bg-secondary">
@@ -59,7 +62,8 @@
                     startButton: '開始遊戲',
                     restartButton: '重新開始',
                     scoreLabel: score => `分數：${score}`,
-                    questionIntro: '請輸入以上詞語最後一字開頭的詞語：',
+                    questionIntro: '請輸入一個以題目最後一個字開頭的詞語。',
+                    questionIntroEn: 'Enter a word that starts with the prompt\'s final character.',
                     countdownLabel: '倒數',
                     secondsSuffix: '秒',
                     loadingMessage: '載入題目中...',
@@ -92,7 +96,8 @@
                     startButton: '开始游戏',
                     restartButton: '重新开始',
                     scoreLabel: score => `分数：${score}`,
-                    questionIntro: '请输入以上词语最后一字开头的词语：',
+                    questionIntro: '请输入一个以题目最后一个字开头的词语。',
+                    questionIntroEn: 'Enter a word that starts with the prompt\'s final character.',
                     countdownLabel: '倒计时',
                     secondsSuffix: '秒',
                     loadingMessage: '载入题目中...',
@@ -128,6 +133,8 @@
         const restartBtn = document.getElementById('restart-btn');
         const currentWordEl = document.getElementById('current-word');
         const questionEl = document.getElementById('question');
+        const questionTextEl = document.getElementById('question-text');
+        const questionTextEnEl = document.getElementById('question-text-en');
         const answerInputEl = document.getElementById('answer-input');
         const resultEl = document.getElementById('result');
         const finalMessageEl = document.getElementById('final-message');
@@ -257,8 +264,11 @@
             if (restartBtn) {
                 restartBtn.textContent = strings.restartButton;
             }
-            if (questionEl) {
-                questionEl.textContent = strings.questionIntro;
+            if (questionTextEl) {
+                questionTextEl.textContent = strings.questionIntro;
+            }
+            if (questionTextEnEl) {
+                questionTextEnEl.textContent = strings.questionIntroEn || 'Enter a word that starts with the prompt\'s final character.';
             }
             if (countdownLabelEl) {
                 countdownLabelEl.textContent = strings.countdownLabel;
