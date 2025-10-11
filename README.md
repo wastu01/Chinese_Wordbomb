@@ -8,13 +8,19 @@
 
 ## Project Layout
 
+- `index.html` - main page that can play chinese vocab game
+
 - `dict_moedict_clean.json` — Reference dictionaries derived from the [萌典](https://github.com/g0v/moedict-webkit) open data dump.
 
 - `dict_moedict_clean_s.json` simplified chinese version.
 
+- `second.html` not finished yet.
+
 to-do : 
 
-recording the last score on cache.
+speed up the time countdown after some rounds.
+
+recording and show the last score on cache.
 
 add multiplayer mode.
 
