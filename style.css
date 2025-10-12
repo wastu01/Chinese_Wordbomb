@@ -128,3 +128,17 @@ body {
     border-color: transparent;
     background-color: transparent;
 }
+
+.life-display {
+    color: #f59f0b;
+}
+
+.life-display svg {
+    width: 28px;
+    height: 28px;
+    display: inline-block;
+}
+
+.life-display .life-icon-empty {
+    opacity: 0.35;
+}
