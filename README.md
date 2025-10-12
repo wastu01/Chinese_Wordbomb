@@ -24,6 +24,8 @@ recording and show the last score on cache.
 
 add multiplayer mode.
 
+document : [https://docs.google.com/document/d/1CGkAbbTZCINa-pF4idxS0LFFWCHu8UbEOGN68IiWiZU/edit?usp=sharing](https://docs.google.com/document/d/1CGkAbbTZCINa-pF4idxS0LFFWCHu8UbEOGN68IiWiZU/edit?usp=sharing)
+
 ## Data Source and License
 
 Vocabulary data originates from the [g0v moedict-webkit project](https://github.com/g0v/moedict-webkit), which is released under the **CC0 1.0 公眾領域貢獻宣告**. As required, please review:
