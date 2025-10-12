@@ -18,9 +18,12 @@
 
 to-do : 
 
-speed up the time countdown after some rounds.
+~~recording and show the last score on cache. ~~
+username, score, combo time 放進 google sheet 中
 
-recording and show the last score on cache.
+讀取資料庫，顯示排行榜的頁面
+--> GAS 有無排序的語法
+--> 或是先撈資料再前端排序
 
 add multiplayer mode.
 
