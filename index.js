@@ -8,6 +8,20 @@
                     startButton: '開始遊戲',
                     restartButton: '重新開始',
                     scoreLabel: score => `分數：${score}`,
+                    lifeCountLabel: lives => `剩餘生命：${lives}`,
+                    outOfLives: '生命用盡，遊戲結束！',
+                    resultTitle: '本局結果',
+                    historyTitle: '本局輸入',
+                    historyStatusCorrect: '正確',
+                    historyStatusWrong: '錯誤',
+                    historyStatusTimeout: '逾時',
+                    historyNoAnswer: '（未作答）',
+                    historyEmptyInput: '（空白）',
+                    modalClose: '關閉',
+                    modalScoreLabel: '分數',
+                    modalComboLabel: '最高連擊',
+                    modalRoundsLabel: '回合數',
+                    roundLabel: round => `回合：${round}`,
                     questionIntro: '請輸入一個以題目最後一個字開頭的詞語。',
                     questionIntroEn: 'Enter a word that starts with the prompt\'s final character.',
                     countdownLabel: '倒數',
@@ -42,6 +56,20 @@
                     startButton: '开始游戏',
                     restartButton: '重新开始',
                     scoreLabel: score => `分数：${score}`,
+                    lifeCountLabel: lives => `剩余生命：${lives}`,
+                    outOfLives: '生命用尽，游戏结束！',
+                    resultTitle: '本局结果',
+                    historyTitle: '本局输入',
+                    historyStatusCorrect: '正确',
+                    historyStatusWrong: '错误',
+                    historyStatusTimeout: '逾时',
+                    historyNoAnswer: '（未作答）',
+                    historyEmptyInput: '（空白）',
+                    modalClose: '关闭',
+                    modalScoreLabel: '分数',
+                    modalComboLabel: '最高连击',
+                    modalRoundsLabel: '回合数',
+                    roundLabel: round => `回合：${round}`,
                     questionIntro: '请输入一个以题目最后一个字开头的词语。',
                     questionIntroEn: 'Enter a word that starts with the prompt\'s final character.',
                     countdownLabel: '倒计时',
@@ -73,8 +101,12 @@
         const STORAGE_KEY_LANGUAGE = 'wordbomb-language';
         const DEFAULT_LANGUAGE = 'zh-Hant';
 
+        const usernName = document.getElementById('usern-name');
         const appTitleEl = document.getElementById('app-title');
         const scoreDisplayEl = document.getElementById('score-display');
+        const roundDisplayEl = document.getElementById('round-display');
+        const lifeDisplayEl = document.getElementById('wrong-display');
+        const lifeCountTextEl = document.getElementById('life-count-text');
         const startBtn = document.getElementById('start-btn');
         const restartBtn = document.getElementById('restart-btn');
         const currentWordEl = document.getElementById('current-word');
@@ -95,8 +127,26 @@
         const footerSourceLinkEl = document.getElementById('footer-source-link');
         const footerFeedbackLabelEl = document.getElementById('footer-feedback-label');
         const footerFeedbackLinkEl = document.getElementById('footer-feedback-link');
+        const resultModalEl = document.getElementById('result-modal');
+        const resultModalTitleEl = document.getElementById('result-modal-title');
+        const resultSummaryEl = document.getElementById('result-summary');
+        const resultHistoryTitleEl = document.getElementById('result-history-title');
+        const resultHistoryEl = document.getElementById('result-history');
+        const resultModalCloseEl = document.getElementById('result-modal-close');
 
         const ROUND_TIME_LIMIT = 12;
+        const LIVES_INITIAL = 3;
+        const SCORE_PARAM1 = 5;
+        const SCORE_PARAM2 = 2;
+        const TIME_PENALTY = 10;
+        const SPEEDUP_THRESHOLD = 20;
+        const SPEEDUP_MULTIPLIER = 2;
+        const ROUND_ACCEL_START = 5;
+        const ROUND_ACCEL_OFFSET = 2;
+        const ROUND_ACCEL_STEP = 0.01;
+        const LIFE_ICON_FILLED = '<svg class="life-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.849 4.22c-.684-1.626-3.014-1.626-3.698 0L8.397 8.387l-4.552.361c-1.775.14-2.495 2.331-1.142 3.477l3.468 2.937-1.06 4.392c-.413 1.713 1.472 3.067 2.992 2.149L12 19.35l3.897 2.354c1.52.918 3.405-.436 2.992-2.15l-1.06-4.39 3.468-2.938c1.353-1.146.633-3.336-1.142-3.477l-4.552-.36-1.754-4.17Z"/></svg>';
+        const LIFE_ICON_EMPTY = '<svg class="life-icon life-icon-empty" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M11.083 5.104c.35-.8 1.485-.8 1.834 0l1.752 4.022a1 1 0 0 0 .84.597l4.463.342c.9.069 1.255 1.2.556 1.771l-3.33 2.723a1 1 0 0 0-.337 1.016l1.03 4.119c.214.858-.71 1.552-1.474 1.106l-3.913-2.281a1 1 0 0 0-1.008 0L7.583 20.8c-.764.446-1.688-.248-1.474-1.106l1.03-4.119A1 1 0 0 0 6.8 14.56l-3.33-2.723c-.698-.571-.342-1.702.557-1.771l4.462-.342a1 1 0 0 0 .84-.597l1.753-4.022Z"/></svg>';
+        let resultModalInstance = null;
 
         const correctSound = new Audio('correct.mp3');
         correctSound.preload = 'auto';
@@ -126,8 +176,12 @@
             currentWord: '',
             usedWords: new Set(),
             active: false,
+            combo: 0,
+            round: 0,
+            lives: LIVES_INITIAL,
+            bestCombo: 0,
+            history: [],
         };
-
         const languageState = {
             current: null,
         };
@@ -244,6 +298,7 @@
             if (restartBtn) {
                 restartBtn.textContent = strings.restartButton;
             }
+            updateRoundDisplay();
             if (questionTextEl) {
                 questionTextEl.textContent = strings.questionIntro;
             }
@@ -282,6 +337,7 @@
                 footerFeedbackLinkEl.textContent = strings.footerFeedbackText;
             }
             updateScoreDisplay();
+            updateLifeDisplay();
             refreshStatusMessage();
         }
 
@@ -302,7 +358,14 @@
             timerState.remaining = ROUND_TIME_LIMIT;
             updateTimerView();
             setStatusMessage('loadingMessage');
+            gameState.round = 0;
+            gameState.lives = LIVES_INITIAL;
+            gameState.combo = 0;
+            gameState.bestCombo = 0;
+            gameState.history = [];
             updateScoreDisplay();
+            updateRoundDisplay();
+            updateLifeDisplay();
         }
 
         function loadDictionaryForLanguage(lang) {
@@ -362,6 +425,11 @@
             }
 
             gameState.score = 0;
+            gameState.combo = 0;
+            gameState.round = 0;
+            gameState.lives = LIVES_INITIAL;
+            gameState.bestCombo = 0;
+            gameState.history = [];
             gameState.usedWords.clear();
             gameState.active = true;
             answerInputEl.value = '';
@@ -369,6 +437,8 @@
             finalMessageEl.textContent = '';
             restartBtn.classList.remove('d-none');
             updateScoreDisplay();
+            updateRoundDisplay();
+            updateLifeDisplay();
 
             const initialWord = takeNextFallback(gameState.usedWords);
             if (!initialWord) {
@@ -401,42 +471,53 @@
 
             if (!rawAnswer) {
                 showResult(translate('answerEmpty'), 'error');
+                recordAttempt(rawAnswer, 'wrong');
+                // registerWrong();
                 return;
             }
 
             if (rawAnswer.trim() !== rawAnswer) {
                 showResult(translate('answerWhitespace'), 'error');
+                recordAttempt(rawAnswer, 'wrong');
+                // registerWrong();
                 return;
             }
 
             if (!expectedFirstChar || rawAnswer.at(0) !== expectedFirstChar) {
                 showResult(translate('answerMustStart', expectedFirstChar || ''), 'error');
+                recordAttempt(rawAnswer, 'wrong');
+                // registerWrong();
                 return;
             }
 
             if (!dictionaryState.wordSet.has(rawAnswer)) {
                 showResult(translate('wordNotFound'), 'error');
+                recordAttempt(rawAnswer, 'wrong');
+                // registerWrong();
                 return;
             }
 
             if (gameState.usedWords.has(rawAnswer)) {
                 showResult(translate('wordUsed'), 'error');
+                recordAttempt(rawAnswer, 'wrong');
+                // registerWrong();
                 return;
             }
 
-            gameState.score += 1;
-            updateScoreDisplay();
+            recordAttempt(rawAnswer, 'correct');
+            addScoreForCorrect();
             gameState.usedWords.add(rawAnswer);
 
             const nextChar = rawAnswer.at(-1);
             const nextWord = takeNextFromPool(nextChar, gameState.usedWords) || takeNextFallback(gameState.usedWords);
 
-            showResult(translate('correct'), 'success', { autoClear: true, clearDelay: 1300 });
+            showResult(translate('correct'), 'success', { autoClear: true, clearDelay: 1800 });
             playCorrectSound();
             answerInputEl.value = '';
 
             if (!nextWord) {
                 finalMessageEl.textContent = translate('victory', nextChar);
+                showResultModal('victory');
                 endGame();
                 return;
             }
@@ -447,6 +528,8 @@
         function setCurrentWord(word) {
             boardStatus = null;
             gameState.currentWord = word;
+            gameState.round += 1;
+            updateRoundDisplay();
             gameState.usedWords.add(word);
             currentWordEl.textContent = word;
             resetCountdown();
@@ -467,6 +550,117 @@
             if (scoreDisplayEl) {
                 scoreDisplayEl.textContent = translate('scoreLabel', gameState.score);
             }
+        }
+
+        function updateLifeDisplay() {
+            if (lifeDisplayEl) {
+                const icons = [];
+                for (let index = 0; index < LIVES_INITIAL; index += 1) {
+                    icons.push(index < gameState.lives ? LIFE_ICON_FILLED : LIFE_ICON_EMPTY);
+                }
+                lifeDisplayEl.innerHTML = icons.join('');
+            }
+            if (lifeCountTextEl) {
+                lifeCountTextEl.textContent = translate('lifeCountLabel', gameState.lives);
+            }
+        }
+
+        function updateRoundDisplay() {
+            if (roundDisplayEl) {
+                roundDisplayEl.textContent = translate('roundLabel', gameState.round);
+            }
+        }
+
+        function recordAttempt(word, status) {
+            gameState.history.push({
+                word: typeof word === 'string' ? word : '',
+                status,
+            });
+        }
+
+        function escapeHtml(value) {
+            if (typeof value !== 'string') {
+                return '';
+            }
+            return value
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function ensureResultModal() {
+            if (!resultModalEl) {
+                return null;
+            }
+            if (!resultModalInstance && window.bootstrap && typeof window.bootstrap.Modal === 'function') {
+                resultModalInstance = new window.bootstrap.Modal(resultModalEl, { backdrop: 'static' });
+            }
+            return resultModalInstance;
+        }
+
+        function showResultModal(reason) {
+            const modal = ensureResultModal();
+            if (!modal) {
+                return;
+            }
+            const strings = getStrings();
+            if (resultModalTitleEl) {
+                resultModalTitleEl.textContent = strings.resultTitle;
+            }
+            if (resultHistoryTitleEl) {
+                resultHistoryTitleEl.textContent = strings.historyTitle;
+            }
+            if (resultModalCloseEl) {
+                resultModalCloseEl.textContent = strings.modalClose;
+            }
+            if (resultSummaryEl) {
+                const summaryLines = [];
+                const finalText = finalMessageEl && typeof finalMessageEl.textContent === 'string'
+                    ? finalMessageEl.textContent.trim()
+                    : '';
+                if (finalText) {
+                    summaryLines.push(`<div class="mb-2">${escapeHtml(finalText)}</div>`);
+                }
+                summaryLines.push(
+                    `<div><strong>${escapeHtml(strings.modalScoreLabel)}：</strong>${escapeHtml(String(gameState.score))}</div>`,
+                    `<div><strong>${escapeHtml(strings.modalComboLabel)}：</strong>${escapeHtml(String(gameState.bestCombo))}</div>`,
+                    `<div><strong>${escapeHtml(strings.modalRoundsLabel)}：</strong>${escapeHtml(String(gameState.round))}</div>`
+                );
+                resultSummaryEl.innerHTML = summaryLines.join('');
+            }
+            if (resultHistoryEl) {
+                if (!gameState.history.length) {
+                    resultHistoryEl.innerHTML = `<li class="list-group-item text-muted">${strings.historyNoAnswer}</li>`;
+                } else {
+                    const statusLabelMap = {
+                        correct: strings.historyStatusCorrect,
+                        wrong: strings.historyStatusWrong,
+                        timeout: strings.historyStatusTimeout,
+                    };
+                    const statusClassMap = {
+                        correct: 'text-success',
+                        wrong: 'text-danger',
+                        timeout: 'text-warning',
+                    };
+                    const items = gameState.history.map(entry => {
+                        const label = statusLabelMap[entry.status] || '';
+                        const statusClass = statusClassMap[entry.status] || 'text-muted';
+                        let wordText = entry.word;
+                        if (entry.status === 'timeout') {
+                            wordText = entry.word ? entry.word : strings.historyNoAnswer;
+                        } else if (!entry.word) {
+                            wordText = strings.historyEmptyInput;
+                        }
+                        const safeWord = escapeHtml(wordText);
+                        const safeLabel = escapeHtml(label);
+                        return `<li class="list-group-item d-flex justify-content-between align-items-center"><span>${safeWord}</span><span class="${statusClass}">${safeLabel}</span></li>`;
+                    });
+                    resultHistoryEl.innerHTML = items.join('');
+                }
+            }
+            modal.show();
         }
 
         function initializeDictionary(words) {
@@ -546,12 +740,30 @@
             timerState.remaining = ROUND_TIME_LIMIT;
             updateTimerView();
             timerState.intervalId = window.setInterval(() => {
-                timerState.remaining = Math.max(0, timerState.remaining - 1);
+                timerState.remaining = Math.max(0, timerState.remaining - getCountdownStep());
                 updateTimerView();
                 if (timerState.remaining === 0) {
                     stopCountdown();
                     if (gameState.active) {
                         showResult(translate('timeUp'), 'warning', { autoClear: true, clearDelay: 1500 });
+                        const pendingAnswer = answerInputEl ? answerInputEl.value : '';
+                        recordAttempt(pendingAnswer, 'timeout');
+                        const exhausted = registerWrong();
+                        applyTimePenalty();
+                        if (!exhausted && gameState.active) {
+                            const nextWord = takeNextFallback(gameState.usedWords);
+                            if (nextWord) {
+                                answerInputEl.value = '';
+                                setCurrentWord(nextWord);
+                            } else {
+                                setStatusMessage('noAvailable');
+                                if (finalMessageEl) {
+                                    finalMessageEl.textContent = translate('noAvailable');
+                                }
+                                showResultModal('noAvailable');
+                                endGame();
+                            }
+                        }
                     }
                 }
             }, 1000);
@@ -566,7 +778,8 @@
 
         function updateTimerView() {
             if (timeRemainingEl) {
-                timeRemainingEl.textContent = String(timerState.remaining);
+                const displaySeconds = Math.max(0, Math.ceil(timerState.remaining));
+                timeRemainingEl.textContent = String(displaySeconds);
             }
             if (timerProgressEl) {
                 const ratio = ROUND_TIME_LIMIT ? (timerState.remaining / ROUND_TIME_LIMIT) : 0;
@@ -577,10 +790,57 @@
             }
         }
 
-        function playCorrectSound() {
-            if (correctSound.readyState >= 2) {
-                correctSound.currentTime = 0;
+        function addScoreForCorrect() {
+            gameState.combo += 1;
+            gameState.bestCombo = Math.max(gameState.bestCombo, gameState.combo);
+            const increment = SCORE_PARAM1 + gameState.combo * SCORE_PARAM2;
+            gameState.score = Math.max(0, gameState.score + increment);
+            updateScoreDisplay();
+        }
+
+        function registerWrong() {
+            gameState.combo = 0;
+            if (gameState.lives > 0) {
+                gameState.lives = Math.max(0, gameState.lives - 1);
+                updateLifeDisplay();
+                if (gameState.lives === 0) {
+                    if (finalMessageEl) {
+                        finalMessageEl.textContent = translate('outOfLives');
+                    }
+                    showResultModal('outOfLives');
+                    endGame();
+                    return true;
+                }
             }
+            return false;
+        }
+
+        function applyTimePenalty() {
+            gameState.score = Math.max(0, gameState.score - TIME_PENALTY);
+            updateScoreDisplay();
+        }
+
+        function getCountdownStep() {
+            const baseStep = gameState.score >= SPEEDUP_THRESHOLD ? SPEEDUP_MULTIPLIER : 1;
+            if (gameState.round >= ROUND_ACCEL_START) {
+                const multiplier = 1 + Math.max(0, gameState.round - ROUND_ACCEL_OFFSET) * ROUND_ACCEL_STEP;
+                return baseStep * multiplier;
+            }
+            return baseStep;
+        }
+
+        function playCorrectSound() {
+            if (correctSound.readyState < 2) {
+                correctSound.load();
+            }
+
+            try {
+                correctSound.pause();
+                correctSound.currentTime = 0;
+            } catch (error) {
+                // ignore errors resetting the audio element
+            }
+
             const playPromise = correctSound.play();
             if (playPromise && typeof playPromise.catch === 'function') {
                 playPromise.catch(() => {});
