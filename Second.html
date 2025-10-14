@@ -1,12 +1,353 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>看圖猜字詞（MVP）</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f8f9fa; }
+        .lives img { width: 28px; height: 28px; }
+        .game-image-wrapper { min-height: 280px; }
+        .game-image { max-height: 420px; object-fit: contain; }
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    </style>
+    <meta name="color-scheme" content="light dark">
+    <link rel="prefetch" href="docs/star-fill.svg">
+    <link rel="prefetch" href="docs/star-outline.svg">
+    <link rel="prefetch" href="圖片檔/圖片檔.json">
+    <link rel="preload" as="image" href="圖片檔/圖片/101.jpg">
+    <link rel="preload" as="image" href="圖片檔/圖片/103.jpg">
 </head>
 <body>
-    <h1>一字千金</h1>
-    <a href="index.html">回到首頁</a>
+    <div class="container py-4">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <h1 class="h3 mb-0">看圖猜字詞</h1>
+                <a class="link-secondary" href="index.html">回到首頁</a>
+            </div>
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="badge text-bg-primary fs-6" id="score-badge">分數：0</div>
+                <div class="lives d-flex align-items-center gap-1" id="lives"></div>
+                <button id="start-btn" class="btn btn-success">開始遊戲</button>
+                <button id="restart-btn" class="btn btn-outline-secondary d-none">重新開始</button>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="row g-4 align-items-center">
+                    <div class="col-12 col-lg-6">
+                        <div class="game-image-wrapper d-flex align-items-center justify-content-center bg-light rounded p-2">
+                            <img id="question-image" class="game-image img-fluid" alt="題目圖片" src="" loading="eager">
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-6">
+                        <div class="mb-2 text-muted">請看左側圖片，輸入正確字詞。</div>
+                        <div class="input-group input-group-lg mb-2">
+                            <input id="answer-input" type="text" class="form-control" placeholder="輸入答案後按 Enter 或按送出" disabled>
+                            <button id="submit-btn" class="btn btn-primary" disabled>送出</button>
+                        </div>
+                        <div class="small text-muted">回合：<span id="round-index">0</span>/<span id="round-total">0</span></div>
+                        <div id="feedback" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <details>
+                <summary class="small text-muted">開發資訊（顯示正解於 Console）</summary>
+                <div class="small text-muted mt-2">每題開始時會在 Console 顯示正解以便驗收。</div>
+            </details>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <div class="modal fade" id="result-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">本局結果</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="result-summary" class="mb-3"></div>
+                    <h6 class="mb-2">作答紀錄</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th scope="col">#</th>
+                                    <th scope="col">正解</th>
+                                    <th scope="col">你的答案</th>
+                                    <th scope="col">結果</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="play-again-btn">再玩一次</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Config
+    const DATA_URL = '圖片檔/圖片檔.json';
+    const IMAGE_BASE = '圖片檔/圖片/';
+    const ROUND_SIZE = 10; // 預設抽 10 題
+    const MAX_LIVES = 3;
+
+    // State
+    let records = [];
+    let groups = [];
+    let round = [];
+    let currentIndex = 0;
+    let score = 0;
+    let lives = MAX_LIVES;
+    let history = [];
+    let resultModal;
+
+    // Elements
+    const elScore = document.getElementById('score-badge');
+    const elLives = document.getElementById('lives');
+    const elStart = document.getElementById('start-btn');
+    const elRestart = document.getElementById('restart-btn');
+    const elImage = document.getElementById('question-image');
+    const elAnswer = document.getElementById('answer-input');
+    const elSubmit = document.getElementById('submit-btn');
+    const elFeedback = document.getElementById('feedback');
+    const elRoundIndex = document.getElementById('round-index');
+    const elRoundTotal = document.getElementById('round-total');
+    const elHistoryBody = document.getElementById('history-body');
+    const elResultSummary = document.getElementById('result-summary');
+
+    // Utils
+    function shuffle(arr) {
+        const a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    }
+
+    function sampleN(arr, n) {
+        return shuffle(arr).slice(0, Math.min(n, arr.length));
+    }
+
+    function renderLives() {
+        elLives.innerHTML = '';
+        for (let i = 0; i < MAX_LIVES; i++) {
+            const img = document.createElement('img');
+            img.alt = i < lives ? '生命' : '失去生命';
+            img.src = i < lives ? 'docs/star-fill.svg' : 'docs/star-outline.svg';
+            elLives.appendChild(img);
+        }
+    }
+
+    function renderScore() {
+        elScore.textContent = `分數：${score}`;
+    }
+
+    function setControlsEnabled(enabled) {
+        elAnswer.disabled = !enabled;
+        elSubmit.disabled = !enabled;
+        if (enabled) {
+            elAnswer.focus();
+        }
+    }
+
+    function showQuestion() {
+        const grp = round[currentIndex];
+        if (!grp) return;
+
+        const filename = grp.filename;
+        const answers = grp.answers || [];
+
+        // Console 顯示所有可能正解
+        console.info('%c本題可接受答案:', 'color:#0d6efd;font-weight:bold', answers.join('、'));
+
+        // 顯示圖片
+        const url = IMAGE_BASE + filename;
+        elImage.onerror = () => {
+            // 失敗時顯示替代圖（簡單 SVG 文字快取）
+            const fallback = encodeURIComponent(
+                `<svg xmlns='http://www.w3.org/2000/svg' width='800' height='480'>`+
+                `<rect width='100%' height='100%' fill='#f1f3f5'/>`+
+                `<text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#6c757d' font-size='24'>圖片載入失敗</text>`+
+                `</svg>`
+            );
+            elImage.src = `data:image/svg+xml;charset=utf-8,${fallback}`;
+            elImage.onerror = null; // 避免循環
+        };
+        elImage.src = url;
+
+        // 題目索引顯示
+        elRoundIndex.textContent = (currentIndex + 1).toString();
+        elRoundTotal.textContent = round.length.toString();
+
+        // 重置 UI
+        elAnswer.value = '';
+        elFeedback.innerHTML = '';
+        setControlsEnabled(true);
+    }
+
+    function updateFeedback(ok, answer, correctDisplay) {
+        const icon = ok ? '✅' : '❌';
+        elFeedback.innerHTML = `<div class="alert ${ok ? 'alert-success' : 'alert-danger'}" role="alert">${icon} 你的答案：<span class="fw-bold">${answer}</span>；正解：<span class="fw-bold">${correctDisplay}</span></div>`;
+    }
+
+    function handleSubmit() {
+        const grp = round[currentIndex];
+        if (!grp) return;
+        const answers = (grp.answers || []).map(s => (s || '').trim());
+        const input = (elAnswer.value || '').trim();
+        if (!input) return; // 空白不觸發
+
+        setControlsEnabled(false);
+
+        // 完全相等於任一答案才正確
+        const ok = answers.includes(input);
+        if (ok) {
+            score += 10; // 正確 +10 分
+            renderScore();
+        } else {
+            lives = Math.max(0, lives - 1); // 扣命
+            renderLives();
+        }
+
+        const correctDisplay = answers.join('、');
+        history.push({ index: currentIndex + 1, correct: correctDisplay, answer: input, ok });
+        updateFeedback(ok, input, correctDisplay);
+
+        // 前進或結束
+        setTimeout(() => {
+            if (lives <= 0 || currentIndex >= round.length - 1) {
+                endRound();
+            } else {
+                currentIndex += 1;
+                showQuestion();
+            }
+        }, 600);
+    }
+
+    function endRound() {
+        setControlsEnabled(false);
+        elStart.classList.add('d-none');
+        elRestart.classList.remove('d-none');
+
+        // 統計
+        const total = history.length;
+        const correctCount = history.filter(h => h.ok).length;
+        const accuracy = total ? Math.round((correctCount / total) * 100) : 0;
+
+        // Summary
+        elResultSummary.innerHTML = `
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <div class="badge text-bg-primary">分數 ${score}</div>
+                <div class="badge text-bg-success">答對 ${correctCount}/${total}</div>
+                <div class="badge text-bg-secondary">正確率 ${accuracy}%</div>
+            </div>
+        `;
+
+        // History table
+        elHistoryBody.innerHTML = '';
+        history.forEach((h, i) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <th scope="row">${i + 1}</th>
+                <td class="mono">${h.correct}</td>
+                <td class="mono">${h.answer}</td>
+                <td>${h.ok ? '<span class="text-success">正確</span>' : '<span class="text-danger">錯誤</span>'}</td>
+            `;
+            elHistoryBody.appendChild(tr);
+        });
+
+        // 開啟 Modal
+        resultModal = resultModal || new bootstrap.Modal(document.getElementById('result-modal'));
+        resultModal.show();
+    }
+
+    function resetState() {
+        currentIndex = 0;
+        score = 0;
+        lives = MAX_LIVES;
+        history = [];
+        renderScore();
+        renderLives();
+        elFeedback.innerHTML = '';
+        elRoundIndex.textContent = '0';
+        elRoundTotal.textContent = '0';
+    }
+
+    function buildGroups(list) {
+        const m = new Map();
+        for (const rec of list) {
+            const filename = (rec['檔案名稱'] || '').trim();
+            const word = (rec['字詞名'] || '').trim();
+            if (!filename || !word) continue;
+            if (!m.has(filename)) m.set(filename, new Set());
+            m.get(filename).add(word);
+        }
+        return Array.from(m.entries()).map(([filename, set]) => ({ filename, answers: Array.from(set) }));
+    }
+
+    async function startRound() {
+        resetState();
+        elStart.classList.add('d-none');
+        elRestart.classList.add('d-none');
+
+        try {
+            if (!records.length) {
+                const res = await fetch(DATA_URL);
+                const json = await res.json();
+                records = Array.isArray(json?.records) ? json.records : [];
+            }
+        } catch (e) {
+            console.error('載入資料集失敗', e);
+        }
+
+        if (!records.length) {
+            elFeedback.innerHTML = '<div class="alert alert-warning" role="alert">資料集載入失敗，請確認檔案路徑。</div>';
+            setControlsEnabled(false);
+            elStart.classList.remove('d-none');
+            return;
+        }
+
+        // 依「圖檔」分組，避免同圖多解造成困擾；對該圖接受所有對應字詞
+        groups = buildGroups(records);
+        round = sampleN(groups, ROUND_SIZE);
+        elRoundTotal.textContent = round.length.toString();
+
+        // 顯示第一題
+        showQuestion();
+    }
+
+    // Events
+    elStart.addEventListener('click', startRound);
+    elRestart.addEventListener('click', startRound);
+    document.getElementById('play-again-btn').addEventListener('click', () => {
+        if (resultModal) resultModal.hide();
+        startRound();
+    });
+    elSubmit.addEventListener('click', handleSubmit);
+    elAnswer.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            handleSubmit();
+        }
+    });
+
+    // 初始渲染（Ticket 1）
+    renderScore();
+    renderLives();
+    setControlsEnabled(false);
+    </script>
 </body>
 </html>
