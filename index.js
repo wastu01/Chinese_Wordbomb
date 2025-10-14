@@ -1,4 +1,11 @@
     document.addEventListener('DOMContentLoaded', () => {
+        // Configurable endpoints (fill in after Apps Script is deployed)
+        const CONFIG = {
+            submitUrl: 'https://script.google.com/macros/s/AKfycbz13xL8DVDarQi4Uh77R1s46_A5vB5m6_zFgFhtX9CG4sTa8XlkbRosXuNNZswoOR-V/exec',
+            leaderboardUrl: '', // optional GET endpoint, e.g. same URL with ?action=leaderboard
+            leaderboardLimit: 20,
+            sheetUrl: 'https://docs.google.com/spreadsheets/d/1W7C3_bv6-mb1RpenaiAzUzwuk7kbUYbvy7vy5CyEw88/edit#gid=0',
+        };
         const LANGUAGE_PACKS = {
             'zh-Hant': {
                 dictionary: 'dict_moedict_clean.json',
@@ -21,6 +28,21 @@
                     modalScoreLabel: '分數',
                     modalComboLabel: '最高連擊',
                     modalRoundsLabel: '回合數',
+                    usernameLabel: '玩家名稱',
+                    usernamePlaceholder: '請輸入名稱（未填視為 guest，最多 10 字元）',
+                    submitStatusReady: '填入名稱後可送出成績。',
+                    submitStatusSending: '送出中…',
+                    submitStatusSuccess: '送出成功！',
+                    submitStatusError: '送出失敗，請稍後再試。',
+                    submitStatusMissingUrl: '尚未設定送出網址。',
+                    submitLabel: '送出',
+                    leaderboardLabel: '查看排行榜',
+                    leaderboardTitle: '排行榜',
+                    leaderboardStatusReady: '顯示最新 20 筆（需設定 API）',
+                    leaderboardStatusLoading: '載入中…',
+                    leaderboardStatusError: '載入失敗，請稍後再試。',
+                    submitOpenSheetLabel: '查看排行榜試算表',
+                    leaderboardNote: '目前排行榜為逐筆紀錄，尚未整併。',
                     roundLabel: round => `回合：${round}`,
                     questionIntro: '請輸入一個以題目最後一個字開頭的詞語。',
                     questionIntroEn: 'Enter a word that starts with the prompt\'s final character.',
@@ -69,6 +91,21 @@
                     modalScoreLabel: '分数',
                     modalComboLabel: '最高连击',
                     modalRoundsLabel: '回合数',
+                    usernameLabel: '玩家名称',
+                    usernamePlaceholder: '请输入名称（未填视为 guest，最多 10 字符）',
+                    submitStatusReady: '填入名称后可送出成绩。',
+                    submitStatusSending: '送出中…',
+                    submitStatusSuccess: '送出成功！',
+                    submitStatusError: '送出失败，请稍后再试。',
+                    submitStatusMissingUrl: '尚未设定送出网址。',
+                    submitLabel: '送出',
+                    leaderboardLabel: '查看排行榜',
+                    leaderboardTitle: '排行榜',
+                    leaderboardStatusReady: '显示最新 20 笔（需设定 API）',
+                    leaderboardStatusLoading: '载入中…',
+                    leaderboardStatusError: '载入失败，请稍后再试。',
+                    submitOpenSheetLabel: '查看排行榜试算表',
+                    leaderboardNote: '当前排行榜为逐笔记录，尚未整理。',
                     roundLabel: round => `回合：${round}`,
                     questionIntro: '请输入一个以题目最后一个字开头的词语。',
                     questionIntroEn: 'Enter a word that starts with the prompt\'s final character.',
@@ -99,9 +136,13 @@
         };
 
         const STORAGE_KEY_LANGUAGE = 'wordbomb-language';
+        const STORAGE_KEY_USERNAME = 'wordbomb-username';
         const DEFAULT_LANGUAGE = 'zh-Hant';
+        const USERNAME_MAX_LENGTH = 10;
+        const languageState = {
+            current: null,
+        };
 
-        const usernName = document.getElementById('usern-name');
         const appTitleEl = document.getElementById('app-title');
         const scoreDisplayEl = document.getElementById('score-display');
         const roundDisplayEl = document.getElementById('round-display');
@@ -130,11 +171,45 @@
         const resultModalEl = document.getElementById('result-modal');
         const resultModalTitleEl = document.getElementById('result-modal-title');
         const resultSummaryEl = document.getElementById('result-summary');
+        const resultUsernameLabelEl = document.getElementById('result-username-label');
+        const resultUsernameInputEl = document.getElementById('result-username-input');
+        const resultSubmitStatusEl = document.getElementById('result-submit-status');
+        const resultSubmitActionsEl = document.getElementById('result-submit-actions');
+        const resultOpenSheetEl = document.getElementById('result-open-sheet');
+        const resultLeaderboardNoteEl = document.getElementById('result-leaderboard-note');
         const resultHistoryTitleEl = document.getElementById('result-history-title');
         const resultHistoryEl = document.getElementById('result-history');
         const resultModalCloseEl = document.getElementById('result-modal-close');
+        const resultSubmitBtnEl = document.getElementById('result-submit-btn');
+        const openLeaderboardBtnEl = document.getElementById('open-leaderboard-btn');
+        const leaderboardModalEl = document.getElementById('leaderboard-modal');
+        const leaderboardModalTitleEl = document.getElementById('leaderboard-modal-title');
+        const leaderboardStatusEl = document.getElementById('leaderboard-status');
+        const leaderboardBodyEl = document.getElementById('leaderboard-body');
+        if (resultOpenSheetEl && CONFIG.sheetUrl) {
+            resultOpenSheetEl.href = CONFIG.sheetUrl;
+        }
+        if (window.RankModule) {
+            window.RankModule.init({
+                config: {
+                    leaderboardUrl: CONFIG.leaderboardUrl,
+                    leaderboardLimit: CONFIG.leaderboardLimit,
+                },
+                elements: {
+                    modalEl: leaderboardModalEl,
+                    statusEl: leaderboardStatusEl,
+                    bodyEl: leaderboardBodyEl,
+                    openButtonEl: openLeaderboardBtnEl,
+                },
+                getStrings,
+                escapeHtml,
+            });
+        }
+        if (resultUsernameInputEl) {
+            resultUsernameInputEl.value = getStoredUsername();
+        }
 
-        const ROUND_TIME_LIMIT = 12;
+        const ROUND_TIME_LIMIT = 20;
         const LIVES_INITIAL = 3;
         const SCORE_PARAM1 = 5;
         const SCORE_PARAM2 = 2;
@@ -181,9 +256,6 @@
             lives: LIVES_INITIAL,
             bestCombo: 0,
             history: [],
-        };
-        const languageState = {
-            current: null,
         };
 
         const storedLanguage = localStorage.getItem(STORAGE_KEY_LANGUAGE);
@@ -324,6 +396,27 @@
             if (answerInputEl) {
                 answerInputEl.placeholder = strings.inputPlaceholder;
             }
+            if (resultUsernameLabelEl) {
+                resultUsernameLabelEl.textContent = strings.usernameLabel;
+            }
+            if (resultUsernameInputEl) {
+                resultUsernameInputEl.placeholder = strings.usernamePlaceholder;
+            }
+            if (resultSubmitBtnEl) {
+                resultSubmitBtnEl.textContent = strings.submitLabel;
+            }
+            if (resultOpenSheetEl) {
+                resultOpenSheetEl.textContent = strings.submitOpenSheetLabel;
+            }
+            if (resultLeaderboardNoteEl) {
+                resultLeaderboardNoteEl.textContent = strings.leaderboardNote;
+            }
+            if (openLeaderboardBtnEl) {
+                openLeaderboardBtnEl.textContent = strings.leaderboardLabel;
+            }
+            if (leaderboardModalTitleEl) {
+                leaderboardModalTitleEl.textContent = strings.leaderboardTitle;
+            }
             if (footerSourceLabelEl) {
                 footerSourceLabelEl.textContent = strings.footerSourceLabel;
             }
@@ -336,6 +429,10 @@
             if (footerFeedbackLinkEl) {
                 footerFeedbackLinkEl.textContent = strings.footerFeedbackText;
             }
+            if (window.RankModule && typeof window.RankModule.updateReadyStatus === 'function') {
+                window.RankModule.updateReadyStatus();
+            }
+            updateSubmitStatus('ready');
             updateScoreDisplay();
             updateLifeDisplay();
             refreshStatusMessage();
@@ -432,7 +529,7 @@
             gameState.history = [];
             gameState.usedWords.clear();
             gameState.active = true;
-            answerInputEl.value = '';
+            resetAnswerInput();
             clearResult();
             finalMessageEl.textContent = '';
             restartBtn.classList.remove('d-none');
@@ -467,40 +564,41 @@
             }
 
             const rawAnswer = answerInputEl.value;
+            console.log('[handleAnswer] raw input:', rawAnswer);
             const expectedFirstChar = gameState.currentWord.at(-1);
 
             if (!rawAnswer) {
                 showResult(translate('answerEmpty'), 'error');
                 recordAttempt(rawAnswer, 'wrong');
-                // registerWrong();
+                resetAnswerInput();
                 return;
             }
 
             if (rawAnswer.trim() !== rawAnswer) {
                 showResult(translate('answerWhitespace'), 'error');
                 recordAttempt(rawAnswer, 'wrong');
-                // registerWrong();
+                resetAnswerInput();
                 return;
             }
 
             if (!expectedFirstChar || rawAnswer.at(0) !== expectedFirstChar) {
                 showResult(translate('answerMustStart', expectedFirstChar || ''), 'error');
                 recordAttempt(rawAnswer, 'wrong');
-                // registerWrong();
+                resetAnswerInput();
                 return;
             }
 
             if (!dictionaryState.wordSet.has(rawAnswer)) {
                 showResult(translate('wordNotFound'), 'error');
                 recordAttempt(rawAnswer, 'wrong');
-                // registerWrong();
+                resetAnswerInput();
                 return;
             }
 
             if (gameState.usedWords.has(rawAnswer)) {
                 showResult(translate('wordUsed'), 'error');
                 recordAttempt(rawAnswer, 'wrong');
-                // registerWrong();
+                resetAnswerInput();
                 return;
             }
 
@@ -513,7 +611,8 @@
 
             showResult(translate('correct'), 'success', { autoClear: true, clearDelay: 1800 });
             playCorrectSound();
-            answerInputEl.value = '';
+            console.log('[handleAnswer] accepted answer, resetting');
+            resetAnswerInput();
 
             if (!nextWord) {
                 finalMessageEl.textContent = translate('victory', nextChar);
@@ -576,6 +675,69 @@
                 word: typeof word === 'string' ? word : '',
                 status,
             });
+        }
+
+        function resetAnswerInput() {
+            if (!answerInputEl) {
+                return;
+            }
+            console.log('[resetAnswerInput] before value:', answerInputEl.value);
+            answerInputEl.value = '';
+            if (typeof answerInputEl.setAttribute === 'function') {
+                answerInputEl.setAttribute('value', '');
+            }
+            if (typeof answerInputEl.dispatchEvent === 'function') {
+                answerInputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                answerInputEl.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            if (!answerInputEl.disabled) {
+                requestAnimationFrame(() => {
+                    console.log('[resetAnswerInput] after value before focus:', answerInputEl.value);
+                    answerInputEl.focus();
+                    answerInputEl.select();
+                });
+            }
+        }
+
+        function updateSubmitStatus(state) {
+            if (!resultSubmitStatusEl) {
+                return;
+            }
+            const strings = getStrings();
+            let text;
+            let toneClass = 'text-muted';
+            switch (state) {
+                case 'sending':
+                    text = strings.submitStatusSending;
+                    toneClass = 'text-muted';
+                    break;
+                case 'success':
+                    text = strings.submitStatusSuccess;
+                    toneClass = 'text-success';
+                    break;
+                case 'error':
+                    text = strings.submitStatusError;
+                    toneClass = 'text-danger';
+                    break;
+                case 'missing':
+                    text = strings.submitStatusMissingUrl;
+                    toneClass = 'text-warning';
+                    break;
+                default:
+                    text = strings.submitStatusReady;
+                    toneClass = 'text-muted';
+            }
+            resultSubmitStatusEl.className = `form-text mt-1 ${toneClass}`;
+            resultSubmitStatusEl.textContent = text;
+            if (resultSubmitActionsEl) {
+                const hasSheetLink = !!(resultOpenSheetEl && resultOpenSheetEl.getAttribute('href'));
+                const shouldShowActions = hasSheetLink && (state === 'success' || state === 'error');
+                if (shouldShowActions) {
+                    resultSubmitActionsEl.classList.remove('d-none');
+                } else {
+                    resultSubmitActionsEl.classList.add('d-none');
+                }
+            }
         }
 
         function escapeHtml(value) {
@@ -660,9 +822,147 @@
                     resultHistoryEl.innerHTML = items.join('');
                 }
             }
+            if (resultUsernameInputEl) {
+                const storedName = getStoredUsername();
+                resultUsernameInputEl.value = storedName;
+            }
+            updateSubmitStatus('ready');
+            if (resultSubmitBtnEl) {
+                resultSubmitBtnEl.disabled = false;
+            }
             modal.show();
+            if (resultUsernameInputEl) {
+                window.setTimeout(() => {
+                    resultUsernameInputEl.focus();
+                }, 260);
+            }
         }
 
+        function sanitizeUsername(raw) {
+            if (typeof raw !== 'string') {
+                return '';
+            }
+            const trimmed = raw.trim();
+            if (!trimmed) {
+                return '';
+            }
+            return trimmed.slice(0, USERNAME_MAX_LENGTH);
+        }
+
+        function getOrCreateClientId() {
+            const KEY = 'client_id';
+            let id = localStorage.getItem(KEY);
+            if (!id) {
+                id = cryptoRandomId();
+                try { localStorage.setItem(KEY, id); } catch (_) {}
+            }
+            return id;
+        }
+
+        function getStoredUsername() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY_USERNAME) || '';
+                return sanitizeUsername(raw);
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function setStoredUsername(name) {
+            try {
+                const sanitized = sanitizeUsername(name || '');
+                if (sanitized) {
+                    localStorage.setItem(STORAGE_KEY_USERNAME, sanitized);
+                } else {
+                    localStorage.removeItem(STORAGE_KEY_USERNAME);
+                }
+            } catch (_) {}
+        }
+
+        function cryptoRandomId() {
+            try {
+                const bytes = new Uint8Array(16);
+                (self.crypto || window.crypto).getRandomValues(bytes);
+                return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+            } catch (_) {
+                return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+            }
+        }
+
+        function buildSubmissionPayload(usernameInput) {
+            const inputName = sanitizeUsername(usernameInput || '');
+            const storedName = getStoredUsername();
+            const finalName = inputName || storedName || 'guest';
+            return {
+                username: finalName,
+                client_id: getOrCreateClientId(),
+                mode: 'allWords',
+                lang: languageState.current || 'zh-Hant',
+                score: gameState.score,
+                high_combo: gameState.bestCombo,
+            };
+        }
+
+        async function submitResult() {
+            if (resultSubmitBtnEl && resultSubmitBtnEl.disabled) {
+                return;
+            }
+            if (!CONFIG.submitUrl) {
+                updateSubmitStatus('missing');
+                return;
+            }
+            const rawName = resultUsernameInputEl ? resultUsernameInputEl.value.trim() : '';
+            setStoredUsername(rawName);
+            const payload = buildSubmissionPayload(rawName);
+            if (resultSubmitBtnEl) {
+                resultSubmitBtnEl.disabled = true;
+            }
+            updateSubmitStatus('sending');
+            try {
+                const res = await fetch(CONFIG.submitUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                    body: JSON.stringify(payload),
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                updateSubmitStatus('success');
+                if (window.RankModule && typeof window.RankModule.refreshIfVisible === 'function') {
+                    window.RankModule.refreshIfVisible();
+                }
+            } catch (err) {
+                console.error('Submit failed', err);
+                updateSubmitStatus('error');
+            } finally {
+                if (resultSubmitBtnEl) {
+                    resultSubmitBtnEl.disabled = false;
+                }
+            }
+        }
+
+        if (resultSubmitBtnEl) {
+            resultSubmitBtnEl.addEventListener('click', submitResult);
+        }
+        if (resultUsernameInputEl) {
+            resultUsernameInputEl.addEventListener('input', () => {
+                const value = resultUsernameInputEl.value;
+                if (value.length > USERNAME_MAX_LENGTH) {
+                    const selectionStart = resultUsernameInputEl.selectionStart;
+                    resultUsernameInputEl.value = value.slice(0, USERNAME_MAX_LENGTH);
+                    const newPos = Math.min(selectionStart, USERNAME_MAX_LENGTH);
+                    resultUsernameInputEl.setSelectionRange(newPos, newPos);
+                }
+            });
+            resultUsernameInputEl.addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    submitResult();
+                }
+            });
+            resultUsernameInputEl.addEventListener('blur', () => {
+                const value = resultUsernameInputEl.value.trim();
+                setStoredUsername(value);
+            });
+        }
         function initializeDictionary(words) {
             const validWords = words.filter(word => typeof word === 'string' && word.length > 0);
             dictionaryState.allWords = validWords;
